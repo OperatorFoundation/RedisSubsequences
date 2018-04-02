@@ -18,6 +18,10 @@ all: subsequences.so
 .c.xo:
 	$(CC) -I. $(CFLAGS) $(SHOBJ_CFLAGS) -fPIC -c $< -o $@
 
+sdk/redismodule.h:
+	git submodule init
+	git submodule update
+
 subsequences.xo: sdk/redismodule.h
 
 subsequences.so: subsequences.xo
