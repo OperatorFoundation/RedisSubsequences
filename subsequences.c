@@ -45,7 +45,7 @@
    Returns the number of subsequences found
    subsequences.add testkey testvalue
 */
-int SequenceAdd_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+int SequenceAddFloating_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   if (argc != 3) return RedisModule_WrongArity(ctx);
 
   RedisModuleString *tempName=RedisModule_CreateString(ctx, (char *)"SequenceAdd:Temp", 16);
@@ -167,7 +167,7 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         printf("Module loaded with ARGV[%d] = %s\n", j, s);
     }
 
-    if (RedisModule_CreateCommand(ctx,"subsequences.add", SequenceAdd_RedisCommand,"write",1,1,1) == REDISMODULE_ERR)
+    if (RedisModule_CreateCommand(ctx,"subsequences.addFloating", SequenceAddFloating_RedisCommand,"write",1,1,1) == REDISMODULE_ERR)
     {
       return REDISMODULE_ERR;
     }
@@ -176,7 +176,7 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
       return REDISMODULE_ERR;
     }
 
-    if (RedisModule_CreateCommand(ctx,"subsequences.addAll",SequenceAddAll_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
+    if (RedisModule_CreateCommand(ctx,"subsequences.add",SequenceAddAll_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
       return REDISMODULE_ERR;
     }
 
