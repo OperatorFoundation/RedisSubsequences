@@ -46,6 +46,8 @@
    subsequences.add testkey testvalue
 */
 int SequenceAddFloating_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+  RedisModule_AutoMemory(ctx);
+  
   if (argc != 3) return RedisModule_WrongArity(ctx);
 
   RedisModuleString *tempName=RedisModule_CreateString(ctx, (char *)"SequenceAdd:Temp", 16);
@@ -83,6 +85,8 @@ int SequenceAddFloating_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **ar
    subsequences.add testkey testvalue 100
 */
 int SequenceAddOffset_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+  RedisModule_AutoMemory(ctx);
+
   if (argc != 4) return RedisModule_WrongArity(ctx);
 
   RedisModuleKey *key = RedisModule_OpenKey(ctx,argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
