@@ -108,6 +108,53 @@ int SequenceAddOffset_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv
   return REDISMODULE_OK;
 }
 
+/* SUBSEQUENCES.ADD sortedsetname offsetprefix sequence
+   Increments scores with keys corresponding to subsequenes of sequence by 1
+   Returns the number of subsequences found
+   subsequences.add testkey testvalue
+*/
+int SequenceAddAll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+  RedisModule_AutoMemory(ctx);
+
+  if (argc != 4) {
+    return RedisModule_WrongArity(ctx);
+  }
+
+  const char *offsetPrefix=RedisModule_StringPtrLen(argv[2], NULL);
+
+  RedisModuleString *tempName=RedisModule_CreateString(ctx, (char *)"SequenceAdd:Temp", 16);
+  RedisModuleKey *temp = RedisModule_OpenKey(ctx, tempName, REDISMODULE_READ|REDISMODULE_WRITE);
+
+  RedisModuleKey *key = RedisModule_OpenKey(ctx,argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
+  size_t seqlen;
+  const char *seq = RedisModule_StringPtrLen(argv[3], &seqlen);
+
+  size_t count = 0;
+  for(size_t sublen=1; sublen<=seqlen; sublen++) {
+    for(int index=0; index+sublen<=seqlen; index++) {
+      const char *subptr=seq+index;
+      RedisModuleString *sub=RedisModule_CreateString(ctx, subptr, sublen);
+
+      int flags=REDISMODULE_ZADD_NX;
+      RedisModule_ZsetAdd(temp, 1.0, sub, &flags);
+      if(flags & REDISMODULE_ZADD_ADDED) {
+        RedisModule_ZsetIncrby(key, 1.0, sub, NULL, NULL);
+        count++;
+      }
+
+      RedisModuleString *offsetName=RedisModule_CreateStringPrintf(ctx, "%s:%d", offsetPrefix, index);
+      RedisModuleKey *offsetKey = RedisModule_OpenKey(ctx, offsetName, REDISMODULE_READ|REDISMODULE_WRITE);
+      RedisModule_ZsetIncrby(offsetKey,1.0,sub,NULL,NULL);
+    }
+  }
+
+  RedisModule_DeleteKey(temp);
+
+  RedisModule_CloseKey(key);
+  RedisModule_ReplyWithLongLong(ctx,count);
+  return REDISMODULE_OK;
+}
+
 /* This function must be present on each Redis module. It is used in order to
  * register the commands into the Redis server. */
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
@@ -120,13 +167,18 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
         printf("Module loaded with ARGV[%d] = %s\n", j, s);
     }
 
-    if (RedisModule_CreateCommand(ctx,"subsequences.add",
-        SequenceAdd_RedisCommand,"write",1,1,1) == REDISMODULE_ERR)
-        return REDISMODULE_ERR;
+    if (RedisModule_CreateCommand(ctx,"subsequences.add", SequenceAdd_RedisCommand,"write",1,1,1) == REDISMODULE_ERR)
+    {
+      return REDISMODULE_ERR;
+    }
 
-    if (RedisModule_CreateCommand(ctx,"subsequences.addOffset",
-        SequenceAddOffset_RedisCommand,"write",1,1,1) == REDISMODULE_ERR)
-        return REDISMODULE_ERR;
+    if (RedisModule_CreateCommand(ctx,"subsequences.addOffset", SequenceAddOffset_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
+      return REDISMODULE_ERR;
+    }
+
+    if (RedisModule_CreateCommand(ctx,"subsequences.addAll",SequenceAddAll_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
+      return REDISMODULE_ERR;
+    }
 
     return REDISMODULE_OK;
 }
