@@ -1,3 +1,4 @@
 *.so
 *.xo
 dump.rdb
+.DS_Store
