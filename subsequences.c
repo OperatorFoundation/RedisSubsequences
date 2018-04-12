@@ -48,6 +48,9 @@
 int SequenceAdd_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   if (argc != 3) return RedisModule_WrongArity(ctx);
 
+  RedisModuleString *tempName=RedisModule_CreateString(ctx, (char *)"SequenceAdd:Temp", 16);
+  RedisModuleKey *temp = RedisModule_OpenKey(ctx, tempName, REDISMODULE_READ|REDISMODULE_WRITE);
+
   RedisModuleKey *key = RedisModule_OpenKey(ctx,argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
   size_t seqlen;
   const char *seq = RedisModule_StringPtrLen(argv[2], &seqlen);
@@ -57,10 +60,17 @@ int SequenceAdd_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int 
     for(int index=0; index+sublen<=seqlen; index++) {
       const char *subptr=seq+index;
       RedisModuleString *sub=RedisModule_CreateString(ctx, subptr, sublen);
-      RedisModule_ZsetIncrby(key,1.0,sub,NULL,NULL);
-      count++;
+
+      int flags=REDISMODULE_ZADD_NX;
+      RedisModule_ZsetAdd(temp, 1.0, sub, &flags);
+      if(flags & REDISMODULE_ZADD_ADDED) {
+        RedisModule_ZsetIncrby(key, 1.0, sub, NULL, NULL);
+        count++;
+      }
     }
   }
+
+  RedisModule_DeleteKey(temp);
 
   RedisModule_CloseKey(key);
   RedisModule_ReplyWithLongLong(ctx,count);
@@ -80,7 +90,7 @@ int SequenceAddOffset_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv
   const char *seq = RedisModule_StringPtrLen(argv[2], &seqlen);
 
   long long index;
-  if ((RedisModule_StringToLongLong(argv[3],&index) != REDISMODULE_OK) || (index < 0) || (index >= seqlen)) {
+  if ((RedisModule_StringToLongLong(argv[3],&index) != REDISMODULE_OK) || (index < 0) || (index >= (long long)seqlen)) {
       RedisModule_CloseKey(key);
       return RedisModule_ReplyWithError(ctx,"ERR invalid offset");
   }
