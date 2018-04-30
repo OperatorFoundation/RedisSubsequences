@@ -47,7 +47,7 @@
 */
 int SequenceAddFloating_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   RedisModule_AutoMemory(ctx);
-  
+
   if (argc != 3) return RedisModule_WrongArity(ctx);
 
   RedisModuleString *tempName=RedisModule_CreateString(ctx, (char *)"SequenceAdd:Temp", 16);
@@ -159,6 +159,52 @@ int SequenceAddAll_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, i
   return REDISMODULE_OK;
 }
 
+/* SUBSEQUENCES.RANGEBYSCOREANDLENGTH sortedsetname score (limit **not yet implemented)
+   Returns the longest subsequence with the given score.
+   Future work: return the longest sequences with the given score up to limit in number.
+   subsequences.rangeByScoreAndLength testkey testvalue
+*/
+int SequenceRangeByScoreAndLength_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc)
+{
+  RedisModule_AutoMemory(ctx);
+
+  if (argc != 3) {
+    return RedisModule_WrongArity(ctx);
+  }
+
+  RedisModuleString *current;
+  RedisModuleString *longest;
+
+  double score;
+  size_t currentLength;
+  size_t longestLength = 0;
+
+  RedisModuleKey *key = RedisModule_OpenKey(ctx,argv[1], REDISMODULE_READ|REDISMODULE_WRITE);
+  RedisModuleString *scoreString = argv[2];
+
+  RedisModule_StringToDouble(scoreString, &score);
+  RedisModule_ZsetFirstInScoreRange(key, score, score, 0, 0);
+
+  // Loop should depend on != end flag, don't know what this is yet
+  while (RedisModule_ZsetRangeEndReached(key) != 1)
+  {
+     current = RedisModule_ZsetRangeCurrentElement(key, NULL);
+     RedisModule_StringPtrLen(current, &currentLength);
+
+     if (currentLength > longestLength)
+     {
+       longestLength = currentLength;
+       longest = current;
+     }
+
+     RedisModule_ZsetRangeNext(key);
+  }
+
+  RedisModule_CloseKey(key);
+  RedisModule_ReplyWithString(ctx, longest);
+  return REDISMODULE_OK;
+}
+
 /* This function must be present on each Redis module. It is used in order to
  * register the commands into the Redis server. */
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
@@ -181,6 +227,10 @@ int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) 
     }
 
     if (RedisModule_CreateCommand(ctx,"subsequences.add",SequenceAddAll_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
+      return REDISMODULE_ERR;
+    }
+
+    if (RedisModule_CreateCommand(ctx,"subsequences.rangeByLength",SequenceRangeByScoreAndLength_RedisCommand,"write",1,1,1) == REDISMODULE_ERR) {
       return REDISMODULE_ERR;
     }
 
